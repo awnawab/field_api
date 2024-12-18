@@ -1,0 +1,390 @@
+#! (C) Copyright 2022- ECMWF.
+#! (C) Copyright 2022- Meteo-France.
+#!
+#! This software is licensed under the terms of the Apache Licence Version 2.0
+#! which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#! In applying this licence, ECMWF does not waive the privileges and immunities
+#! granted to it by virtue of its status as an intergovernmental organisation
+#! nor does it submit to any jurisdiction.
+
+MODULE FIELD_${RANK}$${SUFF}$_STACK_MODULE
+
+USE FIELD_BASIC_MODULE
+USE FIELD_CONSTANTS_MODULE
+USE DEV_ALLOC_MODULE
+USE FIELD_STACK_MEMBER_MODULE
+
+#:set fieldTypeList = fieldType.getFieldTypeList (ranks=[RANK], kinds=['JP' + str (SUFF)], hasView=True)
+
+#:if RANK < 5
+
+#:for ft in fieldTypeList
+
+USE ${ft.name}$_MODULE
+
+${fieldType.useParkind1 ()}$
+
+IMPLICIT NONE
+
+PRIVATE
+
+#:set ftn = ft.name
+
+TYPE ${ftn}$_STACK_MEMBER_PTR
+  CLASS (FIELD_BASIC), POINTER :: PTR => NULL ()
+END TYPE
+
+PUBLIC :: ${ftn}$_STACK_MEMBER_PTR
+
+#:for type in ['WRAPPER', 'OWNER']
+
+TYPE, EXTENDS (${ftn}$_${type}$) :: ${ftn}$_STACK_${type}$
+  TYPE (${ftn}$_STACK_MEMBER_PTR), POINTER :: MEMBERS (:) => NULL ()
+  INTEGER(KIND=JPIM), ALLOCATABLE, PRIVATE :: MEMBER_MAP(:) 
+CONTAINS
+  PROCEDURE :: INIT => ${ftn}$_STACK_${type}$_INIT
+  PROCEDURE :: FINAL => ${ftn}$_STACK_${type}$_FINAL
+!  PROCEDURE :: CREATE_DEVICE_DATA => ${ftn}$_GANG_${type}$_CREATE_DEVICE_DATA
+!  PROCEDURE :: DELETE_DEVICE_DATA => ${ftn}$_GANG_${type}$_DELETE_DEVICE_DATA
+  PROCEDURE :: SET_STATUS => ${ftn}$_STACK_${type}$_SET_STATUS
+END TYPE ${ftn}$_STACK_${type}$
+
+PUBLIC :: ${ftn}$_STACK_${type}$
+
+#:endfor
+
+CONTAINS
+
+#:if ft.rank > 2
+#:set member_dim = ft.rank - 1
+#:else
+#:set member_dim = ft.rank
+#:endif
+    
+#:set ar_pre, ar_post = '', ''
+#:if member_dim > 1
+#:set ar_pre = ', '.join([':'] * (member_dim-1)) + ','
+#:endif
+#:if ft.rank > member_dim
+#:set ar_post = ',' + ', '.join([':'] * (ft.rank - member_dim))
+#:endif
+
+
+  SUBROUTINE INIT_MEMBERS(PARENT, DATA, MEMBERS, MEMBER_MAP, LLBOUNDS1, LLBOUNDS, LMLBOUND, NFLD, LMEMBER_BASE_SIZE, LPERSISTENT, MAP_DEVPTR)
+    CLASS(${ftn}$), INTENT(IN), TARGET :: PARENT
+    ${ft.type}$, INTENT(IN) :: DATA(${ft.shape}$)
+    TYPE (${ftn}$_STACK_MEMBER_PTR), INTENT(INOUT) :: MEMBERS (:)
+    INTEGER(KIND=JPIM), INTENT(IN) :: MEMBER_MAP(:) 
+    INTEGER (KIND=JPIM), INTENT(INOUT) :: LLBOUNDS (:)
+    INTEGER (KIND=JPIM), INTENT(IN) :: LLBOUNDS1 (:)
+    INTEGER (KIND=JPIM), INTENT(IN) :: LMLBOUND (:)
+    INTEGER (KIND=JPIM), INTENT(IN) :: NFLD, LMEMBER_BASE_SIZE
+    LOGICAL, INTENT(IN) :: LPERSISTENT
+    LOGICAL, OPTIONAL, INTENT(IN) :: MAP_DEVPTR
+
+    INTEGER (KIND=JPIM) :: JFLD, NCOMP
+
+    DO JFLD = 1, NFLD
+      LLBOUNDS(${member_dim}$) = LMLBOUND(JFLD)
+
+      IF(MEMBER_MAP(JFLD) == MEMBER_MAP(JFLD+1)) THEN
+         CALL STACK_WRAPPER_MEMBER_INIT_0(DATA(${ar_pre}$ MEMBER_MAP(JFLD)+1:MEMBER_MAP(JFLD+1) ${ar_post}$))
+
+      ELSEIF(REAL(MEMBER_MAP(JFLD+1) - MEMBER_MAP(JFLD) + 1) / REAL(LMEMBER_BASE_SIZE) > 1) THEN
+         NCOMP = (MEMBER_MAP(JFLD+1) - MEMBER_MAP(JFLD) + 1) / LMEMBER_BASE_SIZE
+         IF( MOD((MEMBER_MAP(JFLD+1) - MEMBER_MAP(JFLD) + 1), LMEMBER_BASE_SIZE) /= 0 ) NCOMP = NCOMP + 1
+
+         CALL STACK_WRAPPER_MEMBER_INIT_2(NCOMP, DATA(${ar_pre}$ MEMBER_MAP(JFLD)+1:MEMBER_MAP(JFLD+1) ${ar_post}$), &
+         &                                LLBOUNDS1)
+      ELSE
+
+         CALL STACK_WRAPPER_MEMBER_INIT_1(DATA(${ar_pre}$ MEMBER_MAP(JFLD)+1:MEMBER_MAP(JFLD+1) ${ar_post}$), &
+         &                                LLBOUNDS)
+
+      ENDIF
+
+    ENDDO
+
+    CONTAINS
+
+#:set ar_pre = ', '.join([f'SIZE(DATA,{i+1})' for i in range(member_dim - 1)])
+#:set ar_post = ', '.join([f'SIZE(DATA,{i+1})' for i in range(member_dim, ft.rank)])
+#:if ft.rank > 2
+#:set ar_post = ',' + ar_post
+#:endif
+
+      SUBROUTINE STACK_WRAPPER_MEMBER_INIT_0(LDATA)
+        ${ft.type}$, TARGET, INTENT(IN) :: LDATA(${ar_pre}$${ar_post}$)
+        INTEGER(KIND=JPIM) :: LLBOUNDS0(${ft.rank-1}$)
+
+#:for i in range(member_dim-1)
+        LLBOUNDS0(${i+1}$) = LLBOUNDS(${i+1}$)
+#:endfor
+#:for i in range(member_dim-1, ft.rank-1)
+        LLBOUNDS0(${i}$) = LLBOUNDS(${i+1}$)
+#:endfor
+
+        ALLOCATE(FIELD_${RANK-1}$${SUFF}$_STACK_MEMBER::MEMBERS(JFLD)%PTR)
+
+        ASSOCIATE( FLD => MEMBERS(JFLD)%PTR )
+
+        SELECT TYPE(FLD)
+        TYPE IS(FIELD_${RANK-1}$${SUFF}$_STACK_MEMBER)
+          CALL FLD%INIT (DATA=LDATA, PERSISTENT=LPERSISTENT, LBOUNDS=LLBOUNDS0, &
+                       & MAP_DEVPTR=MAP_DEVPTR, SYNC_ON_FINAL=.FALSE.)
+          FLD%PARENT => PARENT
+        END SELECT
+
+        END ASSOCIATE
+
+      END SUBROUTINE STACK_WRAPPER_MEMBER_INIT_0
+
+      SUBROUTINE STACK_WRAPPER_MEMBER_INIT_1(LDATA, LLBOUNDS)
+        ${ft.type}$, TARGET, INTENT(IN) :: LDATA(${','.join([':'] * (ft.rank))}$)
+        INTEGER(KIND=JPIM), INTENT(IN) :: LLBOUNDS(${ft.rank}$)
+         
+        ALLOCATE(${ftn}$_STACK_MEMBER::MEMBERS(JFLD)%PTR)
+
+        ASSOCIATE( FLD => MEMBERS(JFLD)%PTR )
+
+        SELECT TYPE(FLD)
+        TYPE IS(${ftn}$_STACK_MEMBER)
+          CALL FLD%INIT (DATA=LDATA, PERSISTENT=LPERSISTENT, LBOUNDS=LLBOUNDS, &
+                       & MAP_DEVPTR=MAP_DEVPTR, SYNC_ON_FINAL=.FALSE.)
+          FLD%PARENT => PARENT
+        END SELECT
+
+        END ASSOCIATE
+
+      END SUBROUTINE STACK_WRAPPER_MEMBER_INIT_1
+
+      SUBROUTINE STACK_WRAPPER_MEMBER_INIT_2(NCOMP, LDATA, LLBOUNDS)
+        INTEGER(KIND=JPIM), INTENT(IN) :: NCOMP
+        ${ft.type}$, TARGET, INTENT(IN) :: LDATA(${ar_pre}$,LMEMBER_BASE_SIZE,NCOMP${ar_post}$)
+        INTEGER(KIND=JPIM), INTENT(IN) :: LLBOUNDS(${ft.rank+1}$)
+
+        ALLOCATE(FIELD_${RANK+1}$${SUFF}$_STACK_MEMBER::MEMBERS(JFLD)%PTR)
+
+        ASSOCIATE( FLD => MEMBERS(JFLD)%PTR )
+
+        SELECT TYPE(FLD)
+        TYPE IS(FIELD_${RANK+1}$${SUFF}$_STACK_MEMBER)
+          CALL FLD%INIT (DATA=LDATA, PERSISTENT=LPERSISTENT, LBOUNDS=LLBOUNDS, &
+                       & MAP_DEVPTR=MAP_DEVPTR, SYNC_ON_FINAL=.FALSE.)
+          FLD%PARENT => PARENT
+        END SELECT
+
+        END ASSOCIATE
+         
+      END SUBROUTINE STACK_WRAPPER_MEMBER_INIT_2
+
+
+  END SUBROUTINE INIT_MEMBERS
+
+  SUBROUTINE ${ftn}$_STACK_WRAPPER_INIT(SELF, DATA, PERSISTENT, LBOUNDS, MAP_DEVPTR, SYNC_ON_FINAL, INITIALIZED, &
+  &                                     MEMBER_LBOUND, MEMBER_MAP, MEMBER_BASE_SIZE)
+
+    USE FIELD_ABORT_MODULE
+
+    CLASS(${ftn}$_STACK_WRAPPER) :: SELF
+    ${ft.type}$, TARGET, INTENT(IN) :: DATA(${ft.shape}$)
+    LOGICAL, INTENT(IN), OPTIONAL :: PERSISTENT
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: LBOUNDS(${ft.rank}$)
+    LOGICAL, INTENT(IN), OPTIONAL :: MAP_DEVPTR
+    LOGICAL, INTENT(IN), OPTIONAL :: SYNC_ON_FINAL
+    LOGICAL, INTENT(IN), OPTIONAL :: INITIALIZED
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: MEMBER_LBOUND(:)
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: MEMBER_MAP(:)
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: MEMBER_BASE_SIZE
+
+    INTEGER (KIND=JPIM) :: JFLD, NFLD
+    INTEGER (KIND=JPIM) :: LMEMBER_BASE_SIZE
+    INTEGER (KIND=JPIM) :: LLBOUNDS (${ft.rank}$)
+    INTEGER (KIND=JPIM) :: LLBOUNDS1 (${ft.rank + 1}$)
+    INTEGER (KIND=JPIM), ALLOCATABLE :: LMLBOUND (:)
+
+    LOGICAL :: LPERSISTENT
+
+  
+    CALL SELF%${ftn}$_WRAPPER%INIT (DATA=DATA, PERSISTENT=PERSISTENT, LBOUNDS=LBOUNDS, MAP_DEVPTR=MAP_DEVPTR, & 
+                                  & SYNC_ON_FINAL=SYNC_ON_FINAL, INITIALIZED=INITIALIZED)
+
+    LPERSISTENT = .TRUE.
+    IF (PRESENT (PERSISTENT)) LPERSISTENT = PERSISTENT
+
+    LMEMBER_BASE_SIZE = 1
+    IF (PRESENT(MEMBER_BASE_SIZE)) LMEMBER_BASE_SIZE = MEMBER_BASE_SIZE
+
+#:if member_dim == ft.rank
+    IF (.NOT. LPERSISTENT) THEN
+      CALL FIELD_ABORT ('${ftn}$_STACK_WRAPPER_INIT: THREAD-BUFFER CANNOT BE FIELD_STACK')
+    ENDIF
+#:endif
+
+    IF (PRESENT(MEMBER_MAP)) THEN
+      SELF%MEMBER_MAP = MEMBER_MAP
+    ELSE
+!... Assume each entry in ${member_dim}$ corresponds to a separate member
+      ALLOCATE(SELF%MEMBER_MAP(SIZE(DATA, ${member_dim}$) + 1))
+      SELF%MEMBER_MAP(1) = 0
+      DO JFLD=2,SIZE(SELF%MEMBER_MAP)
+        SELF%MEMBER_MAP(JFLD) = SELF%MEMBER_MAP(JFLD-1) + 1
+      ENDDO
+    ENDIF
+
+    NFLD = SIZE(SELF%MEMBER_MAP - 1)
+    ALLOCATE(LMLBOUND(NFLD))
+    LMLBOUND = 1
+    IF (PRESENT(MEMBER_LBOUND)) LMLBOUND = MEMBER_LBOUND
+
+    ALLOCATE (SELF%MEMBERS (NFLD))
+
+    LLBOUNDS = 1
+    IF(PRESENT(LBOUNDS)) LLBOUNDS = LBOUNDS
+
+    LLBOUNDS1(1:${ft.rank}$) = LLBOUNDS
+    LLBOUNDS1(${ft.rank+1}$) = 1
+
+    CALL INIT_MEMBERS(SELF, SELF%PTR, SELF%MEMBERS, SELF%MEMBER_MAP, LLBOUNDS1, LLBOUNDS, LMLBOUND, NFLD, LMEMBER_BASE_SIZE, LPERSISTENT, &
+    &                 MAP_DEVPTR=MAP_DEVPTR)
+
+    DO JFLD=1,NFLD
+      CALL SELF%MEMBERS(JFLD)%PTR%SET_STATUS (SELF%GET_STATUS ())
+    ENDDO
+
+  END SUBROUTINE ${ftn}$_STACK_WRAPPER_INIT
+
+  SUBROUTINE ${ftn}$_STACK_OWNER_INIT(SELF, LBOUNDS, UBOUNDS, PERSISTENT, DELAYED, INIT_VALUE, PINNED, MAP_DEVPTR, POOLED, &
+  &                                   MEMBER_LBOUND, MEMBER_MAP, MEMBER_BASE_SIZE)
+
+    USE FIELD_ABORT_MODULE
+
+    CLASS(${ftn}$_STACK_OWNER) :: SELF
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: LBOUNDS(${ft.rank}$)
+    INTEGER(KIND=JPIM), INTENT(IN) :: UBOUNDS(${ft.rank}$)
+    LOGICAL, OPTIONAL,  INTENT(IN) :: PERSISTENT
+    LOGICAL, OPTIONAL,  INTENT(IN) :: DELAYED
+    LOGICAL, OPTIONAL,  INTENT(IN) :: PINNED
+    LOGICAL, OPTIONAL,  INTENT(IN) :: MAP_DEVPTR
+    LOGICAL, OPTIONAL,  INTENT(IN) :: POOLED
+    ${ft.type}$, OPTIONAL, INTENT(IN) :: INIT_VALUE
+
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: MEMBER_LBOUND(:)
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: MEMBER_MAP(:)
+    INTEGER(KIND=JPIM), INTENT(IN), OPTIONAL :: MEMBER_BASE_SIZE
+
+    INTEGER (KIND=JPIM) :: JFLD, NFLD
+    INTEGER (KIND=JPIM) :: LMEMBER_BASE_SIZE
+    INTEGER (KIND=JPIM) :: LLBOUNDS (${ft.rank}$)
+    INTEGER (KIND=JPIM) :: LLBOUNDS1 (${ft.rank + 1}$)
+    INTEGER (KIND=JPIM), ALLOCATABLE :: LMLBOUND (:)
+
+    LOGICAL :: LPERSISTENT
+
+  
+    CALL SELF%${ftn}$_OWNER%INIT (PERSISTENT=PERSISTENT, LBOUNDS=LBOUNDS, UBOUNDS=UBOUNDS, &
+        & DELAYED=.FALSE., INIT_VALUE=INIT_VALUE, PINNED=PINNED, MAP_DEVPTR=MAP_DEVPTR, POOLED=POOLED)
+
+    LPERSISTENT = .FALSE.
+    IF (PRESENT (PERSISTENT)) LPERSISTENT = PERSISTENT
+
+    LMEMBER_BASE_SIZE = 1
+    IF (PRESENT(MEMBER_BASE_SIZE)) LMEMBER_BASE_SIZE = MEMBER_BASE_SIZE
+
+#:if member_dim == ft.rank
+    IF (.NOT. LPERSISTENT) THEN
+      CALL FIELD_ABORT ('${ftn}$_STACK_OWNER_INIT: THREAD-BUFFER CANNOT BE FIELD_STACK')
+    ENDIF
+#:endif
+
+    IF (PRESENT(MEMBER_MAP)) THEN
+      SELF%MEMBER_MAP = MEMBER_MAP
+    ELSE
+!... Assume each entry in ${member_dim}$ corresponds to a separate member
+      ALLOCATE(SELF%MEMBER_MAP(SIZE(SELF%PTR, ${member_dim}$) + 1))
+      SELF%MEMBER_MAP(1) = 0
+      DO JFLD=2,SIZE(SELF%MEMBER_MAP)
+        SELF%MEMBER_MAP(JFLD) = SELF%MEMBER_MAP(JFLD-1) + 1
+      ENDDO
+    ENDIF
+
+    NFLD = SIZE(SELF%MEMBER_MAP - 1)
+    ALLOCATE(LMLBOUND(NFLD))
+    LMLBOUND = 1
+    IF (PRESENT(MEMBER_LBOUND)) LMLBOUND = MEMBER_LBOUND
+
+    ALLOCATE (SELF%MEMBERS (NFLD))
+
+    LLBOUNDS = 1
+    IF(PRESENT(LBOUNDS)) LLBOUNDS = LBOUNDS
+
+    LLBOUNDS1(1:${ft.rank}$) = LLBOUNDS
+    LLBOUNDS1(${ft.rank+1}$) = 1
+
+    CALL INIT_MEMBERS(SELF, SELF%PTR, SELF%MEMBERS, SELF%MEMBER_MAP, LLBOUNDS1, LLBOUNDS, LMLBOUND, NFLD, LMEMBER_BASE_SIZE, LPERSISTENT, &
+    &                 MAP_DEVPTR=MAP_DEVPTR)
+
+    DO JFLD=1,NFLD
+      CALL SELF%MEMBERS(JFLD)%PTR%SET_STATUS (SELF%GET_STATUS ())
+    ENDDO
+
+  END SUBROUTINE ${ftn}$_STACK_OWNER_INIT
+
+#:for type in ['WRAPPER', 'OWNER']
+  SUBROUTINE ${ftn}$_STACK_${type}$_SET_STATUS (SELF, KSTATUS)
+    CLASS(${ftn}$_STACK_${type}$) :: SELF
+    INTEGER (KIND=JPIM), INTENT (IN) :: KSTATUS
+
+    INTEGER (KIND=JPIM) :: JFLD
+
+    CALL SELF%${ftn}$_${type}$%SET_STATUS (KSTATUS)
+
+    DO JFLD = 1, SIZE (SELF%MEMBERS)
+      CALL SELF%MEMBERS(JFLD)%PTR%SET_STATUS (KSTATUS)
+    ENDDO
+
+  END SUBROUTINE ${ftn}$_STACK_${type}$_SET_STATUS
+
+  SUBROUTINE ${ftn}$_STACK_${type}$_FINAL(SELF)
+
+    CLASS(${ftn}$_STACK_${type}$) :: SELF
+    ${ft.type}$, POINTER :: PTR(${ft.shape}$)
+    INTEGER (KIND=JPIM) :: JFLD
+    CLASS(FIELD_BASIC), POINTER :: YLF => NULL()
+
+    DO JFLD = 1, SIZE (SELF%MEMBERS)
+      YLF => SELF%MEMBERS(JFLD)%PTR
+
+      CALL YLF%SET_STATUS (IOR (SELF%GET_STATUS (), NHSTFRESH))
+ 
+      SELECT TYPE(YLF)
+      TYPE IS (FIELD_${RANK - 1}$${SUFF}$_STACK_MEMBER)
+        NULLIFY (YLF%DEVPTR)
+        NULLIFY (YLF%PARENT)
+        CALL YLF%FINAL ()
+      TYPE IS (FIELD_${RANK    }$${SUFF}$_STACK_MEMBER)
+        NULLIFY (YLF%DEVPTR)
+        NULLIFY (YLF%PARENT)
+        CALL YLF%FINAL ()
+      TYPE IS (FIELD_${RANK + 1}$${SUFF}$_STACK_MEMBER)
+        NULLIFY (YLF%DEVPTR)
+        NULLIFY (YLF%PARENT)
+        CALL YLF%FINAL ()
+      END SELECT
+
+      DEALLOCATE (YLF)
+    ENDDO
+  
+    CALL SELF%${ftn}$_${type}$%FINAL ()
+
+    DEALLOCATE (SELF%MEMBERS)  
+    NULLIFY (SELF%MEMBERS)  
+
+  END SUBROUTINE ${ftn}$_STACK_${type}$_FINAL
+#:endfor
+
+#:endfor
+
+#:endif
+
+END MODULE FIELD_${RANK}$${SUFF}$_STACK_MODULE
