@@ -30,6 +30,7 @@ macro( field_api_get_offload_model )
 
    if( HAVE_OMP_OFFLOAD )
       set( FIELD_API_ENABLE_ACC OFF )
+      set( OpenMP_Fortran_FLAGS "${OpenMP_Fortran_FLAGS} ${OpenMP_OFFLOAD_Fortran_FLAGS}" CACHE STRING "" FORCE )
    endif()
 
    ## find OpenACC

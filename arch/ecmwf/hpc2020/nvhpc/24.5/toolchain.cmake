@@ -17,4 +17,4 @@ set( OpenACC_Fortran_FLAGS "-acc=gpu -gpu=cc80" CACHE STRING "" )
 # OpenMP FLAGS
 ####################################################################
 
-set( OpenMP_Fortran_FLAGS "-mp=gpu -gpu=cc80" CACHE STRING "" )
+set( OpenMP_OFFLOAD_Fortran_FLAGS "-mp=gpu -gpu=cc80" CACHE STRING "" )
