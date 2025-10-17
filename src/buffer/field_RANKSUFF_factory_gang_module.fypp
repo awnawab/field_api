@@ -20,6 +20,8 @@ USE ${ft.name}$_GANG_MODULE
 #:endif
 #:endif
 #:endfor
+use field_defaults_module, only : pool_owned_fields
+use mpl_module, only : mpl_rank
 
 ${fieldType.useParkind1 ()}$
 
@@ -84,6 +86,9 @@ ${ft.type}$, OPTIONAL, INTENT(IN) :: INIT_VALUE
 TYPE(${ft.name}$_GANG_OWNER), POINTER :: FIELD_GANG
 INTEGER (KIND=JPIM) :: JFLD
 
+if(mpl_rank == 1)then
+if (pool_owned_fields) WRITE(6,*) "GOT HERE FIELD_NEW GANG"
+endif
 ALLOCATE (FIELD_GANG)
 
 CALL FIELD_GANG%INIT (LBOUNDS=LBOUNDS, UBOUNDS=UBOUNDS, PERSISTENT=PERSISTENT, DELAYED=DELAYED, INIT_VALUE=INIT_VALUE)

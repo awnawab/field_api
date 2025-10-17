@@ -21,6 +21,8 @@ USE ${ft.name}$_STACK_MODULE
 #:endif
 #:endif
 #:endfor
+use field_defaults_module, only : pool_owned_fields
+use mpl_module, only : mpl_rank
 
 ${fieldType.useParkind1 ()}$
 
@@ -133,6 +135,9 @@ IF (.NOT. LSTACK) THEN
   CALL FIELD_ABORT('${ft.name}_STACK_OWNER: CANNOT INITIALIZE FIELD_STACK WITH LSTACK=.FALSE.')
 ENDIF
 ALLOCATE (FIELD_STACK)
+if(mpl_rank == 1)then
+if(pool_owned_fields) WRITE(6,*) "GOT HERE FIELD_NEW STACK"
+endif
 
 LLBOUNDS = 1
 IF (PRESENT(LBOUNDS)) LLBOUNDS = LBOUNDS

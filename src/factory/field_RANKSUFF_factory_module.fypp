@@ -20,6 +20,8 @@ USE FIELD_${ft.rank-1}$${SUFF}$_MODULE
 #:endif
 #:endif
 #:endfor
+use field_defaults_module, only : pool_owned_fields
+use mpl_module, only : mpl_rank
 
 ${fieldType.useParkind1 ()}$
 
@@ -198,6 +200,9 @@ LOGICAL, OPTIONAL,  INTENT(IN) :: POOLED
 
 ALLOCATE (FIELD_OWNER)
 
+if(mpl_rank ==1 )then
+if (pool_owned_fields) WRITE(6,*) "GOT HERE FIELD_NEW"
+endif
 CALL FIELD_OWNER%INIT (LBOUNDS=LBOUNDS, UBOUNDS=UBOUNDS, PERSISTENT=PERSISTENT, DELAYED=DELAYED, &
 &                      INIT_VALUE=INIT_VALUE, PINNED=PINNED, MAP_DEVPTR=MAP_DEVPTR, POOLED=POOLED)
 
