@@ -249,15 +249,16 @@ MODULE MEM_POOL_MODULE
                  SELECT TYPE(BLK)
                     TYPE IS (HOST_MEM_BLOCK)
                        ALLOCATE(HOST_MEM_BLOCK::BLK%NEXT)
+                       BLK%NEXT%SIZE = HST_POOL_BLOCK_SIZE
                     TYPE IS (DEVICE_MEM_BLOCK)
                        ALLOCATE(DEVICE_MEM_BLOCK::BLK%NEXT)
+                       BLK%NEXT%SIZE = DEV_POOL_BLOCK_SIZE
                  END SELECT
                ENDIF
                CALL SELF%REQUEST_MEM(ALLOC_SIZE, BLK%NEXT, DATA, BLKID)
             ENDIF
          ELSE
            !... Create new block
-           BLK%SIZE = POOL_BLOCK_SIZE
            DO WHILE ( BLK%SIZE < ALLOC_SIZE )
               BLK%SIZE = BLK%SIZE*2
            ENDDO
