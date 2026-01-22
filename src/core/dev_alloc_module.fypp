@@ -16,6 +16,7 @@ ${fieldType.useParkind1 ()}$
 USE, INTRINSIC :: ISO_C_BINDING
 USE MEM_POOL_MODULE, ONLY: MEM_POOL, DEVICE_MEM_BLOCK, DEV_MEM_BLK_INIT, DEV_MEM_BLK_FINAL
 USE FIELD_DEFAULTS_MODULE, ONLY : INIT_MAP_DEVPTR, DEV_POOL_BLOCK_SIZE
+USE FIELD_ABORT_MODULE, ONLY : FIELD_ABORT
 
 IMPLICIT NONE
 
@@ -80,13 +81,22 @@ SUBROUTINE MEM_BLK_INIT( SIZE, DATA )
    INTEGER(C_SIZE_T), INTENT(IN) :: SIZE
    TYPE(C_PTR), INTENT(OUT) :: DATA
    INTEGER (KIND=C_INT) :: ERR
+   CHARACTER(LEN=200) :: ERROR_MSG
 #:if defined('WITH_HIC')
 $:offload_macros.runtime_error_decl(symbols=['ISTAT',], indent=3)
 #:endif
 
+   WRITE(ERROR_MSG, '(A,I0,A,I0,A)') &
+     "DEV_ALLOC: CUDA MALLOC FAILED (ERROR ", IERR, &
+     ") - SIZE REQUESTED: ", SIZE, " BYTES"
+
 #:if defined('WITH_HIC')
 $:offload_macros.dev_malloc(ptr='DATA', size='SIZE', return_val='ISTAT', indent=5)
 #:endif
+
+   IF( ISTAT /= 0 )THEN
+     CALL FIELD_ABORT(TRIM(ERROR_MSG))
+   ENDIF
 
 END SUBROUTINE MEM_BLK_INIT
 
@@ -185,7 +195,7 @@ IF (PRESENT (LBOUNDS)) ILBOUNDS = LBOUNDS
 SIZ = KIND (DEV)
 #:for i in range (1, ft.rank+1, 1)
 ISHAPE(${i}$) = UBOUNDS(${i}$) - ILBOUNDS(${i}$) + 1
-SIZ = SIZ * ISHAPE(${i}$)
+SIZ = SIZ * INT (UBOUNDS(${i}$)-ILBOUNDS(${i}$)+1, C_SIZE_T)
 #:endfor
 
 IF ( .NOT. ASSOCIATED(DEVICE_POOL%START_BLK) ) THEN
