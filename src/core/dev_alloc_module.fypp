@@ -87,7 +87,7 @@ $:offload_macros.runtime_error_decl(symbols=['ISTAT',], indent=3)
 #:endif
 
    WRITE(ERROR_MSG, '(A,I0,A,I0,A)') &
-     "DEV_ALLOC: CUDA MALLOC FAILED (ERROR ", IERR, &
+     "DEV_ALLOC: CUDA MALLOC FAILED (ERROR ", ISTAT, &
      ") - SIZE REQUESTED: ", SIZE, " BYTES"
 
 #:if defined('WITH_HIC')
