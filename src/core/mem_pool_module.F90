@@ -260,7 +260,12 @@ MODULE MEM_POOL_MODULE
          ELSE
            !... Create new block
            DO WHILE ( BLK%SIZE < ALLOC_SIZE )
-              BLK%SIZE = BLK%SIZE*2
+              SELECT TYPE(BLK)
+                 TYPE IS (HOST_MEM_BLOCK)
+                    BLK%SIZE = BLK%SIZE + HST_POOL_BLOCK_SIZE
+                 TYPE IS (DEVICE_MEM_BLOCK)
+                    BLK%SIZE = BLK%SIZE + DEV_POOL_BLOCK_SIZE
+              END SELECT
            ENDDO
            CALL BLK%INIT()
            CALL BLK%ALLOC(ALLOC_SIZE, DATA)
