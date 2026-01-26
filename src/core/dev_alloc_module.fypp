@@ -86,13 +86,13 @@ SUBROUTINE MEM_BLK_INIT( SIZE, DATA )
 $:offload_macros.runtime_error_decl(symbols=['ISTAT',], indent=3)
 #:endif
 
-   WRITE(ERROR_MSG, '(A,I0,A,I0,A)') &
-     "DEV_ALLOC: CUDA MALLOC FAILED (ERROR ", ISTAT, &
-     ") - SIZE REQUESTED: ", SIZE, " BYTES"
-
 #:if defined('WITH_HIC')
 $:offload_macros.dev_malloc(ptr='DATA', size='SIZE', return_val='ISTAT', indent=5)
 #:endif
+
+   WRITE(ERROR_MSG, '(A,I0,A,I0,A)') &
+     "DEV_ALLOC_MODULE: DEVICE MALLOC FAILED (ERROR ", ISTAT, &
+     ") - SIZE REQUESTED: ", SIZE, " BYTES"
 
    IF( ISTAT /= 0 )THEN
      CALL FIELD_ABORT(TRIM(ERROR_MSG))
@@ -127,6 +127,7 @@ LOGICAL, INTENT(IN) :: MAP_DEVPTR
 
 TYPE (C_PTR) :: PTR
 INTEGER (C_SIZE_T) :: SIZ
+CHARACTER(LEN=200) :: ERROR_MSG
 #:if defined('WITH_HIC')
 $:offload_macros.runtime_error_decl(symbols=['ISTAT',])
 #:endif
@@ -146,6 +147,13 @@ IF(SIZ > 0)THEN
 #:if defined('WITH_HIC')
 $:offload_macros.dev_malloc(ptr='PTR', size='SIZ', return_val='ISTAT', indent=5)
 #:endif
+     WRITE(ERROR_MSG, '(A,I0,A,I0,A)') &
+       "DEV_ALLOC_MODULE: DEVICE MALLOC FAILED (ERROR ", ISTAT, &
+       ") - SIZE REQUESTED: ", SIZ, " BYTES"
+
+     IF( ISTAT /= 0 )THEN
+       CALL FIELD_ABORT(TRIM(ERROR_MSG))
+     ENDIF
    ENDIF
    
    CALL C_F_POINTER (PTR, TMP, UBOUNDS-ILBOUNDS+1)
