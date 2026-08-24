@@ -41,9 +41,14 @@ PROGRAM INIT_OWNER_GPU
 #endif
 #else
 #ifdef _CUDA
-        !$ACC SERIAL DEVICEPTR (PTR_GPU) COPY(OKAY)
+#ifdef __NVCOMPILER_GPU_UNIFIED_MEM
+        !$ACC DATA PRESENT(PTR_GPU)
 #else
-        !$ACC SERIAL PRESENT (PTR_GPU) COPY(OKAY)
+        !$ACC DATA DEVICEPTR(PTR_GPU)
+#endif
+        !$ACC SERIAL COPY(OKAY)
+#else
+        !$ACC SERIAL PRESENT(PTR_GPU) COPY(OKAY)
 #endif
 #endif
         DO I=10,21
@@ -57,6 +62,9 @@ PROGRAM INIT_OWNER_GPU
         !$OMP END TARGET
 #else
         !$ACC END SERIAL
+#ifdef _CUDA
+        !$ACC END DATA
+#endif
 #endif
 
         IF (.NOT. OKAY) THEN
