@@ -71,6 +71,27 @@ macro( field_api_get_offload_model )
        DESCRIPTION "CUDA" DEFAULT ON
        CONDITION CMAKE_CUDA_COMPILER AND (HAVE_ACC OR HAVE_OMP_OFFLOAD) )
 
+   ecbuild_add_option(
+       FEATURE CUDA_UNIFIED
+       DEFAULT OFF
+       DESCRIPTION "Use CUDA Unified Memory with managed allocations"
+       CONDITION HAVE_CUDA
+   )
+
+   if(HAVE_CUDA_UNIFIED)
+      set(_field_api_cuda_unified_flag "-gpu=mem:unified:nomanagedalloc")
+      string(APPEND OpenACC_Fortran_FLAGS " ${_field_api_cuda_unified_flag}")
+      if(TARGET OpenACC::OpenACC_Fortran)
+         target_compile_options(OpenACC::OpenACC_Fortran INTERFACE
+            "$<$<COMPILE_LANGUAGE:Fortran>:${_field_api_cuda_unified_flag}>"
+         )
+         target_link_options(OpenACC::OpenACC_Fortran INTERFACE
+            "${_field_api_cuda_unified_flag}"
+         )
+      endif()
+      unset(_field_api_cuda_unified_flag)
+   endif()
+
    set(FIELD_API_OFFLOAD_MODEL "HostOnly")
    if( HAVE_OMP_OFFLOAD )
      if( CMAKE_Fortran_COMPILER_ID MATCHES "PGI|NVHPC")
