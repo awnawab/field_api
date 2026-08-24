@@ -531,7 +531,7 @@ def memcpy_2D_async(src, src_pitch, dst, dst_pitch, width, height, stream, kdir,
     """
 
     backend = _get_offload_backend()
-    method = _get_method(backend, 'copy_2D_async')
+    method = _get_method(backend, 'memcpy_2D_async')
 
     return _format_lines(method(src, src_pitch, dst, dst_pitch, width, height, stream, kdir, return_val=return_val),
                          indent=indent)
