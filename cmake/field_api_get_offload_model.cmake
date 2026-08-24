@@ -74,7 +74,7 @@ macro( field_api_get_offload_model )
    ecbuild_add_option(
        FEATURE CUDA_UNIFIED
        DEFAULT OFF
-       DESCRIPTION "Use CUDA Unified Memory with managed allocations"
+       DESCRIPTION "Use full CUDA Unified Memory with system allocations"
        CONDITION HAVE_CUDA
    )
 
@@ -108,7 +108,9 @@ macro( field_api_get_offload_model )
        endif()
      endif()
    else()
-     if( HAVE_CUDA )
+     if( HAVE_CUDA_UNIFIED )
+        set(FIELD_API_OFFLOAD_MODEL "NVHPCOpenACCUnifiedCUDA")
+     elseif( HAVE_CUDA )
         set(FIELD_API_OFFLOAD_MODEL "NVHPCOpenACCCUDA")
      elseif( HAVE_ACC )
         set(FIELD_API_OFFLOAD_MODEL "NVHPCOpenACC")

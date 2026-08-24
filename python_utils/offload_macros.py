@@ -9,8 +9,8 @@
 
 import fypp
 from offload_backends import (
-    NVHPCOpenACC, NVHPCOpenACCCUDA, HostOnly, NVHPCOpenMP, NVHPCOpenMPCUDA, ROCMAFAROpenMP,
-    ROCMAFAROpenMPHIP
+    NVHPCOpenACC, NVHPCOpenACCCUDA, NVHPCOpenACCUnifiedCUDA, HostOnly, NVHPCOpenMP,
+    NVHPCOpenMPCUDA, ROCMAFAROpenMP, ROCMAFAROpenMPHIP
 )
 
 """
@@ -21,6 +21,7 @@ _offload_map = {
     'NVHPCOpenACC': NVHPCOpenACC,
     'HostOnly': HostOnly,
     'NVHPCOpenACCCUDA': NVHPCOpenACCCUDA,
+    'NVHPCOpenACCUnifiedCUDA': NVHPCOpenACCUnifiedCUDA,
     'NVHPCOpenMP': NVHPCOpenMP,
     'NVHPCOpenMPCUDA': NVHPCOpenMPCUDA,
     'ROCMAFAROpenMP': ROCMAFAROpenMP,
