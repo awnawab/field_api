@@ -63,6 +63,11 @@ if(HAVE_DELAYED)
 else()
 	target_compile_definitions( field_api_core PRIVATE "-DDELAYED_DEFAULT_VALUE_FROM_CMAKE=.FALSE.")
 endif()
+if(HAVE_MAP_DEVPTR)
+  target_compile_definitions( field_api_core PRIVATE "-DINIT_MAP_DEVPTR_DEFAULT_VALUE_FROM_CMAKE=.TRUE.")
+else()
+  target_compile_definitions( field_api_core PRIVATE "-DINIT_MAP_DEVPTR_DEFAULT_VALUE_FROM_CMAKE=.FALSE.")
+endif()
 
 
 set_source_files_properties( ${CMAKE_CURRENT_BINARY_DIR}/dev_alloc_module.F90 PROPERTIES COMPILE_OPTIONS $<${HAVE_CUDA}:-cuda>)

@@ -96,6 +96,12 @@ ecbuild_add_option( FEATURE DELAYED
 	DEFAULT OFF
 )
 
+##Map device pointers by default
+ecbuild_add_option( FEATURE MAP_DEVPTR
+    DESCRIPTION "Use mapped device pointers by default when creating fields"
+    DEFAULT ON
+)
+
 ##Guard 0 sized allocations
 ecbuild_add_option( FEATURE GUARD_0_SIZE
                     DESCRIPTION "Enable this option to guard 0 sized arrays in FIELD_ACCESS module"
