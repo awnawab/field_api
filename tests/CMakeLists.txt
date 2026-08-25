@@ -181,6 +181,16 @@ else()
 	)
 endif()
 
+if(HAVE_MAP_DEVPTR)
+  list(APPEND TEST_FILES
+    is_map_devptr_by_default.F90
+  )
+else()
+  list(APPEND ABOR1_TEST_FILES
+    is_map_devptr_by_default.F90
+  )
+endif()
+
 if(HAVE_DELAYED AND HAVE_GET_VIEW_ABORT)
 	list(REMOVE_ITEM TEST_FILES
 		get_view_get_device_data.F90
