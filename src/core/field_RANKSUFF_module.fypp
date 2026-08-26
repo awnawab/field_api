@@ -792,8 +792,17 @@ ${indent}$ ENDDO
     CALL SELF%CREATE_DEVICE_DATA(BLK_BOUNDS=BLK_BOUNDS)
 
     IF (SELF%IS_STATUS(UNINITIALIZED) .AND. SELF%HAS_INIT_VALUE) THEN
-$:offload_macros.parallel_gang_vector_loop(present=['SELF%DEVPTR'], copyin=['SELF'], collapse=RANK)
-#:for i in range(1, RANK+1)
+#:for i in range(RANK, 0, -1)
+#:if i == RANK
+#:if i == 1
+$:offload_macros.parallel_gang_vector_loop(present=['SELF%DEVPTR'], copyin=['SELF'])
+#:else
+$:offload_macros.parallel_gang_loop(present=['SELF%DEVPTR'], copyin=['SELF'])
+#:endif
+#:endif
+#:if i == 1 and RANK > 1
+$:offload_macros.parallel_vector_loop()
+#:endif
       DO I${i}$=SELF%LBOUNDS(${i}$), SELF%UBOUNDS(${i}$)
 #:endfor
 #:set array_indexes = ",".join("I" + str(i) for i in range(1, RANK+1))
