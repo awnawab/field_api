@@ -159,6 +159,7 @@ foreach(prec ${precisions})
       OBJECTS
          ${obj_libs}
       PRIVATE_LIBS
+         $<${HAVE_ACC}:OpenACC::OpenACC_Fortran>
          $<${fiat_FOUND}:fiat>
          $<${HAVE_HIPFORT}:hipfort::hip>
          OpenMP::OpenMP_Fortran
@@ -171,7 +172,11 @@ foreach(prec ${precisions})
   target_link_options( ${LIBNAME}_${prec} PUBLIC $<${HAVE_CUDA}:-cuda> )
 
   if( HAVE_ACC AND CMAKE_Fortran_COMPILER_ID MATCHES "PGI|NVHPC")
-     target_link_options( ${LIBNAME}_${prec} INTERFACE SHELL:${OpenACC_Fortran_FLAGS} )
+     if( HAVE_CUDA_UNIFIED )
+        target_link_options( ${LIBNAME}_${prec} PUBLIC SHELL:${OpenACC_Fortran_FLAGS} )
+     else()
+        target_link_options( ${LIBNAME}_${prec} INTERFACE SHELL:${OpenACC_Fortran_FLAGS} )
+     endif()
   endif()
 
   if( HAVE_OMP_OFFLOAD )

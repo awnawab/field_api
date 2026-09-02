@@ -85,9 +85,6 @@ macro( field_api_get_offload_model )
          target_compile_options(OpenACC::OpenACC_Fortran INTERFACE
             "${_field_api_cuda_unified_flag}"
          )
-         target_link_options(OpenACC::OpenACC_Fortran INTERFACE
-            "${_field_api_cuda_unified_flag}"
-         )
       endif()
       unset(_field_api_cuda_unified_flag)
    endif()
