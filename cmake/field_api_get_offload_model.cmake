@@ -79,7 +79,7 @@ macro( field_api_get_offload_model )
    )
 
    if(HAVE_CUDA_UNIFIED)
-      set(_field_api_cuda_unified_flag "-gpu=mem:unified:nomanagedalloc")
+      set(_field_api_cuda_unified_flag "-gpu=mem:unified:managedalloc")
       string(APPEND OpenACC_Fortran_FLAGS " ${_field_api_cuda_unified_flag}")
       if(HAVE_ACC)
          target_compile_options(OpenACC::OpenACC_Fortran INTERFACE
