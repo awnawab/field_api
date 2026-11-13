@@ -48,9 +48,7 @@ CONTAINS
 #:for method in ['SET', 'ADD', 'REMOVE']
   PROCEDURE :: ${method}$_STATUS => ${ftn}$_STACK_${type}$_${method}$_STATUS
 #:endfor
-#:if ft.rank > 2
   PROCEDURE :: GET_VIEW => ${ftn}$_STACK_${type}$_GET_VIEW
-#:endif
 #:for what in ['HOST', 'DEVICE']
   PROCEDURE :: GET_${what}$_DATA => ${ftn}$_STACK_${type}$_GET_${what}$_DATA
 #:endfor
@@ -375,6 +373,18 @@ CONTAINS
 
     ! The parent-component call bypasses the stack's SET_STATUS override.
     CALL SELF%SET_STATUS(SELF%GET_STATUS())
+
+  END FUNCTION ${ftn}$_STACK_${type}$_GET_VIEW
+#:else
+  FUNCTION ${ftn}$_STACK_${type}$_GET_VIEW(SELF, BLOCK_INDEX, ZERO) RESULT(VIEW_PTR)
+    USE FIELD_ABORT_MODULE, ONLY: FIELD_ABORT
+
+    CLASS(${ftn}$_STACK_${type}$) :: SELF
+    INTEGER(KIND=JPIM), INTENT(IN) :: BLOCK_INDEX
+    LOGICAL, OPTIONAL, INTENT(IN) :: ZERO
+    ${ft.type}$, POINTER :: VIEW_PTR(${ft.viewShape}$)
+
+    CALL FIELD_ABORT ('${ftn}$_STACK_${type}$_GET_VIEW: GET_VIEW IS NOT SUPPORTED FOR RANK-2 STACKS')
 
   END FUNCTION ${ftn}$_STACK_${type}$_GET_VIEW
 #:endif
